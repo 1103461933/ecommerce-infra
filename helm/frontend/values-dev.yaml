@@ -1,0 +1,21 @@
+replicaCount: 1
+
+image:
+  tag: dev-latest
+
+service:
+  type: LoadBalancer
+
+ingress:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+env:
+  REACT_APP_API_URL: "http://api-gateway:8080"

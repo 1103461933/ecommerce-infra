@@ -1,0 +1,19 @@
+replicaCount: 1
+
+image:
+  tag: dev-latest
+
+service:
+  type: ClusterIP
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+env:
+  MONGODB_URI: "mongodb://mongodb:27017/users_db"
+  JWT_SECRET: "secret-key"

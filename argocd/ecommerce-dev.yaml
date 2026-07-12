@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecommerce-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/1103461933/ecommerce-infra.git'
+    targetRevision: main
+    path: helm
+    helm:
+      valueFiles:
+        - frontend/values.yaml
+        - frontend/values-dev.yaml
+        - api-gateway/values.yaml
+        - api-gateway/values-dev.yaml
+        - user-service/values.yaml
+        - user-service/values-dev.yaml
+        - product-service/values.yaml
+        - product-service/values-dev.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

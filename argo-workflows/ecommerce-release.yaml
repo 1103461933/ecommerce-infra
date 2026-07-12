@@ -1,0 +1,105 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ecommerce-release-workflow
+  namespace: argo
+spec:
+  entrypoint: ecommerce-release
+  serviceAccountName: argo-workflows-sa
+  arguments:
+    parameters:
+      - name: frontend_tag
+        value: "latest"
+      - name: api_gateway_tag
+        value: "latest"
+      - name: user_service_tag
+        value: "latest"
+      - name: product_service_tag
+        value: "latest"
+      - name: target_environment
+        value: "dev"
+      - name: repo_url
+        value: "https://github.com/1103461933/ecommerce-infra.git"
+  templates:
+    - name: ecommerce-release
+      steps:
+        - - name: validate-and-prepare
+            template: validate-and-prepare
+        - - name: update-manifests
+            template: update-manifests
+            arguments:
+              parameters:
+                - name: frontend_tag
+                  value: "{{ workflow.parameters.frontend_tag }}"
+                - name: api_gateway_tag
+                  value: "{{ workflow.parameters.api_gateway_tag }}"
+                - name: user_service_tag
+                  value: "{{ workflow.parameters.user_service_tag }}"
+                - name: product_service_tag
+                  value: "{{ workflow.parameters.product_service_tag }}"
+                - name: target_environment
+                  value: "{{ workflow.parameters.target_environment }}"
+        - - name: commit-and-push
+            template: commit-and-push
+            arguments:
+              parameters:
+                - name: frontend_tag
+                  value: "{{ workflow.parameters.frontend_tag }}"
+                - name: api_gateway_tag
+                  value: "{{ workflow.parameters.api_gateway_tag }}"
+                - name: user_service_tag
+                  value: "{{ workflow.parameters.user_service_tag }}"
+                - name: product_service_tag
+                  value: "{{ workflow.parameters.product_service_tag }}"
+                - name: target_environment
+                  value: "{{ workflow.parameters.target_environment }}"
+        - - name: trigger-argocd-sync
+            template: trigger-argocd-sync
+            arguments:
+              parameters:
+                - name: target_environment
+                  value: "{{ workflow.parameters.target_environment }}"
+
+    - name: validate-and-prepare
+      container:
+        image: alpine:latest
+        command: [sh, -c]
+        args:
+          - |
+            echo "=========================================="
+            echo "🔍 Validating release for E-commerce"
+            echo "📦 Frontend Tag: {{ workflow.parameters.frontend_tag }}"
+            echo "📦 API Gateway Tag: {{ workflow.parameters.api_gateway_tag }}"
+            echo "📦 User Service Tag: {{ workflow.parameters.user_service_tag }}"
+            echo "📦 Product Service Tag: {{ workflow.parameters.product_service_tag }}"
+            echo "🎯 Target Environment: {{ workflow.parameters.target_environment }}"
+            echo "=========================================="
+
+    - name: update-manifests
+      inputs:
+        parameters:
+          - name: frontend_tag
+          - name: api_gateway_tag
+          - name: user_service_tag
+          - name: product_service_tag
+          - name: target_environment
+      container:
+        image: alpine/git:latest
+        env:
+          - name: FRONTEND_TAG
+            value: "{{ inputs.parameters.frontend_tag }}"
+          - name: API_GATEWAY_TAG
+            value: "{{ inputs.parameters.api_gateway_tag }}"
+          - name: USER_SERVICE_TAG
+            value: "{{ inputs.parameters.user_service_tag }}"
+          - name: PRODUCT_SERVICE_TAG
+            value: "{{ inputs.parameters.product_service_tag }}"
+          - name: TARGET_ENV
+            value: "{{ inputs.parameters.target_environment }}"
+        command: [sh, -c]
+        args:
+          - |
+            echo "📥 Cloning repository..."
+            git clone {{ workflow.parameters.repo_url }} /tmp/repo
+            cd /tmp/repo
+            sed -i "s|tag:
