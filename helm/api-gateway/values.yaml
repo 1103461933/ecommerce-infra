@@ -3,7 +3,7 @@ fullnameOverride: "api-gateway"
 
 image:
   repository: xlen911/api-gateway
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 service:
