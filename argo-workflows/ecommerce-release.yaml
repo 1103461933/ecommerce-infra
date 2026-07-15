@@ -102,4 +102,94 @@ spec:
             echo "📥 Cloning repository..."
             git clone {{ workflow.parameters.repo_url }} /tmp/repo
             cd /tmp/repo
-            sed -i "s|tag:
+            echo "📝 Updating frontend tag to $FRONTEND_TAG"
+            sed -i "s|tag: .*|tag: $FRONTEND_TAG|g" helm/frontend/values-$TARGET_ENV.yaml
+            echo "📝 Updating API Gateway tag to $API_GATEWAY_TAG"
+            sed -i "s|tag: .*|tag: $API_GATEWAY_TAG|g" helm/api-gateway/values-$TARGET_ENV.yaml
+            echo "📝 Updating User Service tag to $USER_SERVICE_TAG"
+            sed -i "s|tag: .*|tag: $USER_SERVICE_TAG|g" helm/user-service/values-$TARGET_ENV.yaml
+            echo "📝 Updating Product Service tag to $PRODUCT_SERVICE_TAG"
+            sed -i "s|tag: .*|tag: $PRODUCT_SERVICE_TAG|g" helm/product-service/values-$TARGET_ENV.yaml
+            echo "✅ Manifests updated successfully"
+            echo "true" > /tmp/repo/changes_made.txt
+      outputs:
+        parameters:
+          - name: changes_made
+            valueFrom:
+              path: /tmp/repo/changes_made.txt
+
+    - name: commit-and-push
+      inputs:
+        parameters:
+          - name: frontend_tag
+          - name: api_gateway_tag
+          - name: user_service_tag
+          - name: product_service_tag
+          - name: target_environment
+      container:
+        image: alpine/git:latest
+        env:
+          - name: FRONTEND_TAG
+            value: "{{ inputs.parameters.frontend_tag }}"
+          - name: API_GATEWAY_TAG
+            value: "{{ inputs.parameters.api_gateway_tag }}"
+          - name: USER_SERVICE_TAG
+            value: "{{ inputs.parameters.user_service_tag }}"
+          - name: PRODUCT_SERVICE_TAG
+            value: "{{ inputs.parameters.product_service_tag }}"
+          - name: TARGET_ENV
+            value: "{{ inputs.parameters.target_environment }}"
+          - name: GITHUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: github-credentials
+                key: GITHUB_TOKEN
+          - name: GITHUB_USER
+            valueFrom:
+              secretKeyRef:
+                name: github-credentials
+                key: GITHUB_USER
+        command: [sh, -c]
+        args:
+          - |
+            echo "🔐 Cloning with GitHub token..."
+            git clone https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/1103461933/ecommerce-infra.git /tmp/repo
+            cd /tmp/repo
+            git config user.email "argo-workflows@ecommerce.com"
+            git config user.name "Argo Workflows"
+            echo "📦 Adding changes..."
+            git add .
+            if git diff --quiet && git diff --staged --quiet; then
+              echo "ℹ️ No changes to commit"
+            else
+              echo "📦 Committing changes..."
+              git commit -m "Release: Update $TARGET_ENV images [skip ci]"
+              echo "🚀 Pushing to GitHub..."
+              git push origin main
+              echo "✅ Changes pushed successfully"
+            fi
+            COMMIT_HASH=$(git rev-parse HEAD)
+            echo "📌 Commit Hash: $COMMIT_HASH"
+            echo $COMMIT_HASH > /tmp/repo/commit_hash.txt
+      outputs:
+        parameters:
+          - name: commit_hash
+            valueFrom:
+              path: /tmp/repo/commit_hash.txt
+
+    - name: trigger-argocd-sync
+      inputs:
+        parameters:
+          - name: target_environment
+      container:
+        image: bitnami/kubectl:latest
+        env:
+          - name: TARGET_ENV
+            value: "{{ inputs.parameters.target_environment }}"
+        command: [sh, -c]
+        args:
+          - |
+            echo "🔄 Refreshing Argo CD application: ecommerce-$TARGET_ENV"
+            kubectl patch application ecommerce-$TARGET_ENV -n argocd --type=merge \
+              -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
+            echo "✅ Argo CD refresh triggered successfully"
