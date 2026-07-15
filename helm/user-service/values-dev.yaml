@@ -16,5 +16,5 @@ resources:
     memory: 128Mi
 
 env:
-  MONGODB_URI: "mongodb://mongodb:27017/users_db"
+  MONGODB_URI: "mongodb://mongodb.dev.svc.cluster.local:27017/users_db"
   JWT_SECRET: "secret-key"
