@@ -1,4 +1,5 @@
 replicaCount: 1
+fullnameOverride: "user-service"
 
 image:
   repository: xlen911/user-service
