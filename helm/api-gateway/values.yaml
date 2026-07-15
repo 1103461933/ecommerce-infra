@@ -1,4 +1,5 @@
 replicaCount: 1
+fullnameOverride: "api-gateway"
 
 image:
   repository: xlen911/api-gateway

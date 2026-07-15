@@ -1,4 +1,5 @@
 replicaCount: 1
+fullnameOverride: "frontend"
 
 image:
   repository: xlen911/frontend-react
